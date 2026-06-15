@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Simulação de Corrosão Anisotrópica</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #fdfaf1; color: #002b49; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .controls { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; width: 100%; max-width: 600px; }
+        .slider-container { margin-top: 15px; }
+        input[type=range] { width: 100%; }
+        .views { display: flex; gap: 40px; width: 100%; max-width: 800px; justify-content: center; }
+        .view-box { background: white; border: 2px solid #cbd5e1; border-radius: 8px; width: 300px; height: 300px; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+        .view-title { position: absolute; top: 10px; left: 10px; font-weight: bold; font-size: 14px; z-index: 10; }
+        
+        /* Elementos da Vista Superior */
+        .top-mask { position: absolute; background: rgba(232, 161, 0, 0.8); width: 150px; height: 150px; display: flex; justify-content: center; align-items: center; transition: 0.1s; border: 2px solid #b37d00; }
+        .top-etch { background: #002b49; transition: 0.1s; }
+        
+        /* Elementos do Corte Transversal */
+        .side-silicon { position: absolute; bottom: 0; width: 100%; height: 200px; background: #cbd5e1; }
+        .side-mask { position: absolute; top: 80px; width: 150px; height: 20px; background: rgba(232, 161, 0, 0.8); }
+        .side-etch { position: absolute; top: 100px; border-top: 0px solid #fdfaf1; border-left: 0px solid transparent; border-right: 0px solid transparent; transition: 0.1s; }
+        
+        .description { margin-top: 20px; padding: 15px; background: #e2e8f0; border-radius: 8px; max-width: 600px; text-align: center; font-weight: 500; height: 60px; }
+    </style>
+</head>
+<body>
+
+    <h2>Evolução da Corrosão: Máscara Quadrada vs Circular</h2>
+    
+    <div class="controls">
+        <label><b>Geometria da Máscara:</b></label><br>
+        <input type="radio" name="maskType" value="square" id="square" checked onchange="updateSim()"> <label for="square">Quadrada Alinhada [110]</label>
+        <input type="radio" name="maskType" value="circle" id="circle" style="margin-left: 20px;" onchange="updateSim()"> <label for="circle">Circular</label>
+        
+        <div class="slider-container">
+            <label><b>Tempo de Corrosão:</b> <span id="timeVal">0</span>%</label>
+            <input type="range" id="timeSlider" min="0" max="100" value="0" oninput="updateSim()">
+        </div>
+    </div>
+
+    <div class="views">
+        <div class="view-box">
+            <div class="view-title">Vista Superior (Top-Down)</div>
+            <div class="top-mask" id="topMask">
+                <div class="top-etch" id="topEtch" style="width: 150px; height: 150px;"></div>
+            </div>
+        </div>
+
+        <div class="view-box">
+            <div class="view-title">Corte Transversal</div>
+            <div class="side-silicon"></div>
+            <div class="side-mask" id="sideMask" style="width: 300px; left: 0;"></div>
+            <div class="side-mask" id="sideMaskHole" style="width: 150px; background: transparent; border-left: 2px solid #b37d00; border-right: 2px solid #b37d00;"></div>
+            <div class="side-etch" id="sideEtch"></div>
+        </div>
+    </div>
+    
+    <div class="description" id="descText">Início do processo. A máscara de nitreto protege o silício.</div>
+
+    <script>
+        function updateSim() {
+            const isSquare = document.getElementById('square').checked;
+            const time = parseInt(document.getElementById('timeSlider').value);
+            document.getElementById('timeVal').innerText = time;
+            
+            const topMask = document.getElementById('topMask');
+            const topEtch = document.getElementById('topEtch');
+            const sideEtch = document.getElementById('sideEtch');
+            const desc = document.getElementById('descText');
+            
+            // Fator de profundidade (max 100px)
+            const depth = time; 
+            // Fator de undercut para o círculo (expansão lateral)
+            const undercut = time * 0.4; 
+
+            if (isSquare) {
+                topMask.style.borderRadius = "0%";
+                topMask.style.width = "150px"; topMask.style.height = "150px";
+                
+                // Quadrado interno diminui com o tempo formando a pirâmide
+                const innerSize = Math.max(0, 150 - (time * 1.5));
+                topEtch.style.width = innerSize + "px";
+                topEtch.style.height = innerSize + "px";
+                
+                sideEtch.style.borderTopWidth = depth + "px";
+                sideEtch.style.borderLeftWidth = (depth * 0.7) + "px";
+                sideEtch.style.borderRightWidth = (depth * 0.7) + "px";
+                sideEtch.style.width = Math.max(0, 150 - (depth * 1.4)) + "px";
+                
+                if(time === 0) desc.innerText = "Início do processo.";
+                else if(time < 100) desc.innerText = "Corrosão estável. Os planos (111) delimitam a cavidade mantendo as bordas alinhadas e retas.";
+                else desc.innerText = "Finalizado. Pirâmide invertida perfeita de base quadrada.";
+                
+            } else {
+                // Para o Círculo: sofre undercut e vira um quadrado
+                topMask.style.borderRadius = Math.max(0, 50 - (time * 0.5)) + "%";
+                // A máscara expande visualmente devido à subcorrosão
+                const outerSize = 150 + undercut;
+                topMask.style.width = outerSize + "px"; topMask.style.height = outerSize + "px";
+                
+                const innerSize = Math.max(0, outerSize - (time * 1.5));
+                topEtch.style.width = innerSize + "px";
+                topEtch.style.height = innerSize + "px";
+                
+                sideEtch.style.borderTopWidth = depth + "px";
+                // Abertura superior do buraco aumenta no corte lateral (undercut)
+                sideEtch.style.borderLeftWidth = (depth * 0.7) + "px";
+                sideEtch.style.borderRightWidth = (depth * 0.7) + "px";
+                sideEtch.style.width = Math.max(0, 150 + undercut - (depth * 1.4)) + "px";
+                
+                if(time === 0) desc.innerText = "Início do processo com máscara circular.";
+                else if(time < 100) desc.innerText = "Subcorrosão (Underetching) severa nas quinas. O círculo está sendo forçado a virar um quadrado.";
+                else desc.innerText = "Finalizado. O formato final é quadrado, mas a abertura original foi alargada e distorcida.";
+            }
+        }
+        updateSim();
+    </script>
+</body>
+</html>
